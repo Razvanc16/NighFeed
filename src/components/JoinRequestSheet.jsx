@@ -12,7 +12,7 @@ export default function JoinRequestSheet({ event, user, open, onClose, alreadyRe
 
     const username = user.user_metadata?.username || user.email?.split("@")[0] || "User";
     const { error } = await supabase.from("attendance_requests").insert([{
-      event_id: event.rawId || event.id,
+      event_id: (event.rawId || event.id).toString().replace('posted_', ''),
       requester_id: user.id,
       requester_username: username,
       host_id: event.user_id,
