@@ -119,7 +119,7 @@ export default function SplashScreen({ onDone }) {
           textTransform: "uppercase",
           animation: "slideUpFade 0.5s ease-out 0.7s both",
         }}>
-         
+        </div>
 
         {/* Loading dots */}
         <div style={{
