@@ -4,7 +4,7 @@ import { events } from "../data/events";
 
 const PROFILE_KEY = "nightfeed_profile_id";
 
-export default function ProfilePage() {
+export default function ProfilePage({ user, onLogout }) {
   const [view, setView] = useState("loading"); // loading | setup | profile
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -149,8 +149,8 @@ export default function ProfilePage() {
 
           {/* Form fields */}
           {[
-            { key: "prenume", label: "Prenume", placeholder: "ex: Ion", type: "text" },
-            { key: "nume", label: "Nume", placeholder: "ex: Popescu", type: "text" },
+            { key: "prenume", label: "Prenume", placeholder: "ex: Razvan", type: "text" },
+            { key: "nume", label: "Nume", placeholder: "ex: Chiceanu", type: "text" },
             { key: "varsta", label: "Vârstă", placeholder: "ex: 22", type: "number" },
             { key: "hobby", label: "Hobby-uri", placeholder: "ex: muzică, fotbal, gaming", type: "text" },
           ].map(field => (

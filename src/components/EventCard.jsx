@@ -18,6 +18,12 @@ const CheckIcon = ({ color }) => (
   </svg>
 );
 
+const CommentIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
 const ShareIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -72,6 +78,13 @@ const BurstParticle = ({ x, y, color, angle, id }) => (
   />
 );
 
+
+const CommentIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
 const Toast = ({ message, show, color }) => (
   <div style={{
     position: "fixed", bottom: 90, left: "50%",
@@ -88,7 +101,7 @@ const Toast = ({ message, show, color }) => (
   </div>
 );
 
-export default function EventCard({ event, isActive }) {
+export default function EventCard({ event, isActive, user, onComments }) {
   const [liked, setLiked] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`liked_${event.id}`)) || false; } catch { return false; }
   });
@@ -254,6 +267,8 @@ export default function EventCard({ event, isActive }) {
           { key: "like", onClick: handleLike, active: liked, label: formatNum(likeCount), icon: <HeartIcon filled={liked} color={event.color} /> },
           { key: "attend", onClick: handleAttend, active: attending, label: formatNum(attendCount), icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> },
           { key: "share", onClick: handleShare, active: false, label: "Share", icon: <ShareIcon /> },
+          { key: "comment", onClick: (e) => { e.stopPropagation(); onComment && onComment(); }, active: false, label: "Chat", icon: <CommentIcon /> },
+          { key: "comments", onClick: (e) => { e.stopPropagation(); onComments && onComments(); }, active: false, label: "Chat", icon: <CommentIcon /> },
         ].map(btn => (
           <button key={btn.key} onClick={btn.onClick} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: 0 }}>
             <div style={{

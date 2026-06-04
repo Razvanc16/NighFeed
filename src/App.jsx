@@ -6,6 +6,10 @@ import ProgressDots from "./components/ProgressDots";
 import ProfilePage from "./components/ProfilePage";
 import MapPage from "./components/MapPage";
 import SplashScreen from "./components/SplashScreen";
+import AuthPage from "./components/AuthPage";
+import PostPage from "./components/PostPage";
+import CommentsSheet from "./components/CommentsSheet";
+import { supabase } from "./supabase";
 import { events } from "./data/events";
 
 const filterFn = (event, filter) => {
@@ -20,13 +24,27 @@ const filterFn = (event, filter) => {
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [user, setUser] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("feed");
   const [activeFilter, setActiveFilter] = useState("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showPost, setShowPost] = useState(false);
+  const [commentsEvent, setCommentsEvent] = useState(null);
   const feedRef = useRef(null);
 
   const filtered = events.filter((e) => filterFn(e, activeFilter));
+
+  // Check auth session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setUser(data.session.user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const feed = feedRef.current;
@@ -45,6 +63,14 @@ export default function App() {
       setCurrentIndex(0);
     }
   }, [activeFilter]);
+
+  const handleTabChange = (tab) => {
+    if (tab === "post") {
+      setShowPost(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <>
@@ -78,6 +104,16 @@ export default function App() {
 
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
 
+      {/* POST PAGE */}
+      {showPost && (
+        <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 20, animation: "slideUp 0.3s ease-out" }}>
+          {user
+            ? <PostPage user={user} onClose={() => setShowPost(false)} />
+            : <AuthPage onAuth={(u) => { setUser(u); }} />
+          }
+        </div>
+      )}
+
       {/* MAP PAGE */}
       {activeTab === "map" && (
         <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 10 }}>
@@ -88,12 +124,15 @@ export default function App() {
       {/* PROFILE PAGE */}
       {activeTab === "profile" && (
         <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 10, animation: "slideUp 0.3s ease-out" }}>
-          <ProfilePage />
+          {user
+            ? <ProfilePage user={user} onLogout={() => { supabase.auth.signOut(); setUser(null); }} />
+            : <AuthPage onAuth={(u) => setUser(u)} />
+          }
         </div>
       )}
 
       {/* FEED */}
-      <div style={{ display: activeTab === "feed" ? "block" : "none" }}>
+      <div style={{ display: activeTab === "feed" && !showPost ? "block" : "none" }}>
         <div ref={feedRef} style={{ width: "100%", height: "calc(100dvh - 64px)", overflowY: "scroll", scrollSnapType: "y mandatory", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
           {filtered.length === 0 ? (
             <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", gap: 12 }}>
@@ -103,7 +142,12 @@ export default function App() {
           ) : (
             filtered.map((event, i) => (
               <div key={event.id} style={{ width: "100%", height: "calc(100dvh - 64px)", scrollSnapAlign: "start", scrollSnapStop: "always", flexShrink: 0 }}>
-                <EventCard event={event} isActive={i === currentIndex} />
+                <EventCard
+                  event={event}
+                  isActive={i === currentIndex}
+                  user={user}
+                  onComment={() => setCommentsEvent(event)}
+                />
               </div>
             ))
           )}
@@ -114,9 +158,7 @@ export default function App() {
         )}
 
         <button onClick={() => setDrawerOpen(true)} style={{ position: "fixed", top: 20, right: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, width: 40, height: 40, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, backdropFilter: "blur(10px)", zIndex: 50, padding: 0 }}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} style={{ width: i === 1 ? 14 : 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.8)" }} />
-          ))}
+          {[0, 1, 2].map(i => <div key={i} style={{ width: i === 1 ? 14 : 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.8)" }} />)}
         </button>
 
         {activeFilter !== "all" && (
@@ -129,7 +171,15 @@ export default function App() {
         <FilterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} active={activeFilter} onChange={setActiveFilter} />
       </div>
 
-      <Navbar active={activeTab} onChange={setActiveTab} />
+      {/* Comments sheet */}
+      <CommentsSheet
+        event={commentsEvent}
+        user={user}
+        open={!!commentsEvent}
+        onClose={() => setCommentsEvent(null)}
+      />
+
+      <Navbar active={activeTab} onChange={handleTabChange} />
     </>
   );
 }
