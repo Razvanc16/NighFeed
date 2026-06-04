@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar";
 import ProgressDots from "./components/ProgressDots";
 import ProfilePage from "./components/ProfilePage";
 import MapPage from "./components/MapPage";
+import SplashScreen from "./components/SplashScreen";
 import { events } from "./data/events";
 
 const filterFn = (event, filter) => {
@@ -18,6 +19,7 @@ const filterFn = (event, filter) => {
 };
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("feed");
   const [activeFilter, setActiveFilter] = useState("all");
@@ -74,42 +76,25 @@ export default function App() {
         }
       `}</style>
 
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+
       {/* MAP PAGE */}
       {activeTab === "map" && (
-        <div style={{
-          position: "fixed", inset: 0,
-          height: "calc(100dvh - 64px)",
-          zIndex: 10,
-        }}>
+        <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 10 }}>
           <MapPage />
         </div>
       )}
 
-      {/* PROFIL PAGE */}
+      {/* PROFILE PAGE */}
       {activeTab === "profile" && (
-        <div style={{
-          position: "fixed", inset: 0,
-          height: "calc(100dvh - 64px)",
-          zIndex: 10,
-          animation: "slideUp 0.3s ease-out",
-        }}>
+        <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 10, animation: "slideUp 0.3s ease-out" }}>
           <ProfilePage />
         </div>
       )}
 
       {/* FEED */}
       <div style={{ display: activeTab === "feed" ? "block" : "none" }}>
-        <div
-          ref={feedRef}
-          style={{
-            width: "100%",
-            height: "calc(100dvh - 64px)",
-            overflowY: "scroll",
-            scrollSnapType: "y mandatory",
-            scrollBehavior: "smooth",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
+        <div ref={feedRef} style={{ width: "100%", height: "calc(100dvh - 64px)", overflowY: "scroll", scrollSnapType: "y mandatory", scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}>
           {filtered.length === 0 ? (
             <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", gap: 12 }}>
               <span style={{ fontSize: 48 }}>🌙</span>
@@ -128,39 +113,16 @@ export default function App() {
           <ProgressDots total={filtered.length} current={currentIndex} color={filtered[currentIndex]?.color} />
         )}
 
-        {/* Hamburger */}
-        <button
-          onClick={() => setDrawerOpen(true)}
-          style={{
-            position: "fixed", top: 20, right: 16,
-            background: "rgba(255,255,255,0.1)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 12, width: 40, height: 40,
-            cursor: "pointer", display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: 5, backdropFilter: "blur(10px)", zIndex: 50, padding: 0,
-          }}
-        >
+        <button onClick={() => setDrawerOpen(true)} style={{ position: "fixed", top: 20, right: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, width: 40, height: 40, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, backdropFilter: "blur(10px)", zIndex: 50, padding: 0 }}>
           {[0, 1, 2].map((i) => (
             <div key={i} style={{ width: i === 1 ? 14 : 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.8)" }} />
           ))}
         </button>
 
         {activeFilter !== "all" && (
-          <div style={{
-            position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-            padding: "5px 14px", borderRadius: 20,
-            background: "rgba(255,51,102,0.2)", border: "1px solid rgba(255,51,102,0.4)",
-            backdropFilter: "blur(10px)", zIndex: 50,
-            display: "flex", alignItems: "center", gap: 6,
-            animation: "fadeIn 0.3s ease-out",
-          }}>
-            <span style={{ fontSize: 10, color: "#FF3366", fontWeight: 700, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              {activeFilter}
-            </span>
-            <button onClick={() => setActiveFilter("all")} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,51,102,0.7)", fontSize: 14, lineHeight: 1, padding: 0 }}>
-              ×
-            </button>
+          <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", padding: "5px 14px", borderRadius: 20, background: "rgba(255,51,102,0.2)", border: "1px solid rgba(255,51,102,0.4)", backdropFilter: "blur(10px)", zIndex: 50, display: "flex", alignItems: "center", gap: 6, animation: "fadeIn 0.3s ease-out" }}>
+            <span style={{ fontSize: 10, color: "#FF3366", fontWeight: 700, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>{activeFilter}</span>
+            <button onClick={() => setActiveFilter("all")} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,51,102,0.7)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
           </div>
         )}
 
