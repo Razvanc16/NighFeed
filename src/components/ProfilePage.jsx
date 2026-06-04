@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 import { events as staticEvents } from "../data/events";
+import PostPage from "./PostPage";
 
 const PROFILE_KEY = "nightfeed_profile_id";
 
@@ -13,6 +14,7 @@ export default function ProfilePage({ user, onLogout }) {
   const [attendingEvents, setAttendingEvents] = useState([]);
   const [likedEvents, setLikedEvents] = useState([]);
   const [myPostedEvents, setMyPostedEvents] = useState([]);
+  const [editingEvent, setEditingEvent] = useState(null);
   const fileRef = useRef(null);
   const [form, setForm] = useState({ nume: "", prenume: "", varsta: "", gen: "", hobby: "", avatar_url: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -230,9 +232,10 @@ export default function ProfilePage({ user, onLogout }) {
                         {event.verified ? "✅ Verificat" : "⏳ În așteptare"}
                       </div>
                     </div>
-                    <button onClick={() => handleDeletePosted(event.id)} style={{ background: "rgba(255,51,102,0.1)", border: "1px solid rgba(255,51,102,0.2)", borderRadius: 8, padding: "5px 10px", color: "#FF3366", fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>
-                      Șterge
-                    </button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <button onClick={() => setEditingEvent(event)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Editează</button>
+                      <button onClick={() => handleDeletePosted(event.id)} style={{ background: "rgba(255,51,102,0.1)", border: "1px solid rgba(255,51,102,0.2)", borderRadius: 8, padding: "5px 10px", color: "#FF3366", fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Șterge</button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -263,6 +266,15 @@ export default function ProfilePage({ user, onLogout }) {
               ))
             )}
           </div>
+        </div>
+      )}
+      {editingEvent && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "#080808" }}>
+          <PostPage
+            user={user}
+            editEvent={editingEvent}
+            onClose={() => { setEditingEvent(null); loadMyPostedEvents(); }}
+          />
         </div>
       )}
     </div>
