@@ -1,3 +1,4 @@
+import JoinRequestSheet from "./JoinRequestSheet";
 import { useState, useRef, useEffect } from "react";
 
 const HeartIcon = ({ filled, color }) => (
@@ -91,6 +92,7 @@ export default function EventCard({ event, isActive, user, onComment }) {
   const [burst, setBurst] = useState([]);
   const [toast, setToast] = useState({ show: false, message: "", color: "#fff" });
   const [btnAnim, setBtnAnim] = useState({ like: false, attend: false, share: false, comment: false });
+  const [showJoinRequest, setShowJoinRequest] = useState(false);
   const lastTap = useRef(0);
   const cardRef = useRef(null);
   const toastTimer = useRef(null);
@@ -197,7 +199,9 @@ export default function EventCard({ event, isActive, user, onComment }) {
 
   const buttons = [
     { key: "like", onClick: handleLike, active: liked, label: formatNum(likeCount), icon: <HeartIcon filled={liked} color={event.color} /> },
-    { key: "attend", onClick: handleAttend, active: attending, label: formatNum(attendCount), icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> },
+    event.isPosted && event.type === "homemade"
+      ? { key: "attend", onClick: (e) => { e.stopPropagation(); animateBtn("attend"); setShowJoinRequest(true); }, active: attending, label: "Particip", icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> }
+      : { key: "attend", onClick: handleAttend, active: attending, label: formatNum(attendCount), icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> },
     { key: "share", onClick: handleShare, active: false, label: "Share", icon: <ShareIcon /> },
     { key: "comment", onClick: handleComment, active: false, label: "Chat", icon: <CommentIcon /> },
   ];
@@ -263,6 +267,13 @@ export default function EventCard({ event, isActive, user, onComment }) {
       {hearts.map(h => <HeartParticle key={h.id} x={h.x} y={h.y} id={h.id} color={event.color} />)}
       <BigHeart show={bigHeart} color={event.color} />
       <Toast show={toast.show} message={toast.message} color={toast.color} />
+      <JoinRequestSheet
+        event={event}
+        user={user}
+        open={showJoinRequest}
+        onClose={() => setShowJoinRequest(false)}
+        alreadyRequested={false}
+      />
     </div>
   );
 }

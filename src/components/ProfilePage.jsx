@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 import { events as staticEvents } from "../data/events";
 import PostPage from "./PostPage";
+import RequestsPage from "./RequestsPage";
 
 const PROFILE_KEY = "nightfeed_profile_id";
 
@@ -15,6 +16,7 @@ export default function ProfilePage({ user, onLogout }) {
   const [likedEvents, setLikedEvents] = useState([]);
   const [myPostedEvents, setMyPostedEvents] = useState([]);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [showRequests, setShowRequests] = useState(false);
   const fileRef = useRef(null);
   const [form, setForm] = useState({ nume: "", prenume: "", varsta: "", gen: "", hobby: "", avatar_url: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -180,6 +182,7 @@ export default function ProfilePage({ user, onLogout }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={() => setEditing(true)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "7px 12px", color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Editează</button>
               {onLogout && <button onClick={onLogout} style={{ background: "rgba(255,51,102,0.1)", border: "1px solid rgba(255,51,102,0.2)", borderRadius: 10, padding: "7px 12px", color: "#FF3366", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Ieși</button>}
+              <button onClick={() => setShowRequests(true)} style={{ background: "rgba(255,184,0,0.1)", border: "1px solid rgba(255,184,0,0.2)", borderRadius: 10, padding: "7px 12px", color: "#FFB800", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>📬 Cereri</button>
             </div>
           </div>
 
@@ -268,6 +271,10 @@ export default function ProfilePage({ user, onLogout }) {
           </div>
         </div>
       )}
+      {showRequests && (
+        <RequestsPage user={user} onClose={() => setShowRequests(false)} />
+      )}
+
       {editingEvent && (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "#080808" }}>
           <PostPage
