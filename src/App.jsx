@@ -24,7 +24,7 @@ const filterFn = (event, filter) => {
 
 // Convert Supabase posted_event to same format as static events
 const convertPostedEvent = (e) => ({
-  id: `posted_${e.id}`,
+  id: e.id,
   type: e.type || "homemade",
   title: e.title,
   venue: e.venue || "Locație necunoscută",
