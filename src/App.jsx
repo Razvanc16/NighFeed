@@ -10,17 +10,37 @@ import AuthPage from "./components/AuthPage";
 import PostPage from "./components/PostPage";
 import CommentsSheet from "./components/CommentsSheet";
 import { supabase } from "./supabase";
-import { events } from "./data/events";
+import { events as staticEvents } from "./data/events";
 
 const filterFn = (event, filter) => {
   if (filter === "all") return true;
   if (filter === "official") return event.type === "official";
   if (filter === "homemade") return event.type === "homemade";
-  if (filter === "today") return event.date.toLowerCase().includes("azi");
-  if (filter === "weekend") return event.date.toLowerCase().includes("weekend") || event.date.toLowerCase().includes("sâmbătă");
+  if (filter === "today") return event.date?.toLowerCase().includes("azi");
+  if (filter === "weekend") return event.date?.toLowerCase().includes("weekend") || event.date?.toLowerCase().includes("sâmbătă");
   if (filter === "free") return event.price === "Gratuit";
   return true;
 };
+
+// Convert Supabase posted_event to same format as static events
+const convertPostedEvent = (e) => ({
+  id: `posted_${e.id}`,
+  type: e.type || "homemade",
+  title: e.title,
+  venue: e.venue || "Locație necunoscută",
+  date: e.date || "Data necunoscută",
+  price: e.price || "Gratuit",
+  likes: 0,
+  attending: 0,
+  tags: e.tags ? e.tags.split(",").map(t => t.trim()) : [],
+  color: e.type === "official" ? "#FF3366" : "#FFB800",
+  bgColor: e.type === "official" ? "#1a0010" : "#110d00",
+  description: e.description || "",
+  organizer: "Utilizator NightFeed",
+  cover_url: e.cover_url,
+  ticket_link: e.ticket_link,
+  isPosted: true,
+});
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -31,9 +51,12 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPost, setShowPost] = useState(false);
   const [commentsEvent, setCommentsEvent] = useState(null);
+  const [postedEvents, setPostedEvents] = useState([]);
   const feedRef = useRef(null);
 
-  const filtered = events.filter((e) => filterFn(e, activeFilter));
+  // Combine static + posted events
+  const allEvents = [...staticEvents, ...postedEvents];
+  const filtered = allEvents.filter(e => filterFn(e, activeFilter));
 
   // Check auth session
   useEffect(() => {
@@ -45,6 +68,19 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Load posted events from Supabase
+  useEffect(() => {
+    loadPostedEvents();
+  }, []);
+
+  const loadPostedEvents = async () => {
+    const { data, error } = await supabase
+      .from("posted_events")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setPostedEvents(data.map(convertPostedEvent));
+  };
 
   useEffect(() => {
     const feed = feedRef.current;
@@ -65,10 +101,7 @@ export default function App() {
   }, [activeFilter]);
 
   const handleTabChange = (tab) => {
-    if (tab === "post") {
-      setShowPost(true);
-      return;
-    }
+    if (tab === "post") { setShowPost(true); return; }
     setActiveTab(tab);
   };
 
@@ -79,27 +112,11 @@ export default function App() {
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body { background: #000; overflow: hidden; font-family: 'DM Sans', sans-serif; }
         #root { width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
-        @keyframes floatHeart {
-          0%   { transform: translateY(0) scale(1); opacity: 1; }
-          100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
-        }
-        @keyframes bigHeartPop {
-          0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
-          50%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
-          50%       { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes floatHeart { 0%{transform:translateY(0) scale(1);opacity:1} 100%{transform:translateY(-80px) scale(0.5);opacity:0} }
+        @keyframes bigHeartPop { 0%{transform:translate(-50%,-50%) scale(0.2);opacity:1} 50%{transform:translate(-50%,-50%) scale(1.2);opacity:1} 100%{transform:translate(-50%,-50%) scale(1);opacity:0} }
+        @keyframes pulse { 0%,100%{opacity:0.5;transform:translateX(-50%) scale(1)} 50%{opacity:0.8;transform:translateX(-50%) scale(1.1)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
 
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
@@ -108,8 +125,8 @@ export default function App() {
       {showPost && (
         <div style={{ position: "fixed", inset: 0, height: "calc(100dvh - 64px)", zIndex: 20, animation: "slideUp 0.3s ease-out" }}>
           {user
-            ? <PostPage user={user} onClose={() => setShowPost(false)} />
-            : <AuthPage onAuth={(u) => { setUser(u); }} />
+            ? <PostPage user={user} onClose={() => { setShowPost(false); loadPostedEvents(); }} />
+            : <AuthPage onAuth={(u) => setUser(u)} />
           }
         </div>
       )}
@@ -142,23 +159,16 @@ export default function App() {
           ) : (
             filtered.map((event, i) => (
               <div key={event.id} style={{ width: "100%", height: "calc(100dvh - 64px)", scrollSnapAlign: "start", scrollSnapStop: "always", flexShrink: 0 }}>
-                <EventCard
-                  event={event}
-                  isActive={i === currentIndex}
-                  user={user}
-                  onComment={() => setCommentsEvent(event)}
-                />
+                <EventCard event={event} isActive={i === currentIndex} user={user} onComment={() => setCommentsEvent(event)} />
               </div>
             ))
           )}
         </div>
 
-        {filtered.length > 1 && (
-          <ProgressDots total={filtered.length} current={currentIndex} color={filtered[currentIndex]?.color} />
-        )}
+        {filtered.length > 1 && <ProgressDots total={filtered.length} current={currentIndex} color={filtered[currentIndex]?.color} />}
 
         <button onClick={() => setDrawerOpen(true)} style={{ position: "fixed", top: 20, right: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, width: 40, height: 40, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, backdropFilter: "blur(10px)", zIndex: 50, padding: 0 }}>
-          {[0, 1, 2].map(i => <div key={i} style={{ width: i === 1 ? 14 : 18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.8)" }} />)}
+          {[0,1,2].map(i => <div key={i} style={{ width: i===1?14:18, height: 2, borderRadius: 2, background: "rgba(255,255,255,0.8)" }} />)}
         </button>
 
         {activeFilter !== "all" && (
@@ -171,14 +181,7 @@ export default function App() {
         <FilterDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} active={activeFilter} onChange={setActiveFilter} />
       </div>
 
-      {/* Comments sheet */}
-      <CommentsSheet
-        event={commentsEvent}
-        user={user}
-        open={!!commentsEvent}
-        onClose={() => setCommentsEvent(null)}
-      />
-
+      <CommentsSheet event={commentsEvent} user={user} open={!!commentsEvent} onClose={() => setCommentsEvent(null)} />
       <Navbar active={activeTab} onChange={handleTabChange} />
     </>
   );
