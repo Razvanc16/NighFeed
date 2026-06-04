@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const HeartIcon = ({ filled, color }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? color : "none"} stroke={filled ? color : "rgba(255,255,255,0.8)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -18,12 +18,6 @@ const CheckIcon = ({ color }) => (
   </svg>
 );
 
-const CommentIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-);
-
 const ShareIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -31,7 +25,12 @@ const ShareIcon = () => (
   </svg>
 );
 
-// Floating heart particles (on screen)
+const CommentIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
 const HeartParticle = ({ x, y, id, color }) => (
   <div style={{ position: "absolute", left: x - 10, top: y - 10, pointerEvents: "none", animation: "floatHeart 1.2s ease-out forwards", zIndex: 100 }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill={color}>
@@ -48,25 +47,9 @@ const BigHeart = ({ show, color }) => (
   </div>
 );
 
-// Burst particle (explodes from button)
-const BurstParticle = ({ x, y, color, angle, id }) => (
+const BurstParticle = ({ x, y, color, angle }) => (
   <div
-    key={id}
-    style={{
-      position: "fixed",
-      left: x,
-      top: y,
-      width: 6,
-      height: 6,
-      borderRadius: "50%",
-      background: color,
-      pointerEvents: "none",
-      zIndex: 500,
-      animation: "none",
-      transform: "translate(-50%, -50%)",
-      "--angle": `${angle}deg`,
-      "--dist": `${30 + Math.random() * 30}px`,
-    }}
+    style={{ position: "fixed", left: x, top: y, width: 6, height: 6, borderRadius: "50%", background: color, pointerEvents: "none", zIndex: 500, transform: "translate(-50%, -50%)" }}
     ref={el => {
       if (el) {
         el.animate([
@@ -76,13 +59,6 @@ const BurstParticle = ({ x, y, color, angle, id }) => (
       }
     }}
   />
-);
-
-
-const CommentIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
 );
 
 const Toast = ({ message, show, color }) => (
@@ -101,7 +77,7 @@ const Toast = ({ message, show, color }) => (
   </div>
 );
 
-export default function EventCard({ event, isActive, user, onComments }) {
+export default function EventCard({ event, isActive, user, onComment }) {
   const [liked, setLiked] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`liked_${event.id}`)) || false; } catch { return false; }
   });
@@ -114,7 +90,7 @@ export default function EventCard({ event, isActive, user, onComments }) {
   const [bigHeart, setBigHeart] = useState(false);
   const [burst, setBurst] = useState([]);
   const [toast, setToast] = useState({ show: false, message: "", color: "#fff" });
-  const [btnAnim, setBtnAnim] = useState({ like: false, attend: false, share: false });
+  const [btnAnim, setBtnAnim] = useState({ like: false, attend: false, share: false, comment: false });
   const lastTap = useRef(0);
   const cardRef = useRef(null);
   const toastTimer = useRef(null);
@@ -137,9 +113,7 @@ export default function EventCard({ event, isActive, user, onComments }) {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     const particles = Array.from({ length: 8 }, (_, i) => ({
-      id: Date.now() + i,
-      x: cx, y: cy,
-      color,
+      id: Date.now() + i, x: cx, y: cy, color,
       angle: (360 / 8) * i + Math.random() * 20,
     }));
     setBurst(prev => [...prev, ...particles]);
@@ -165,7 +139,6 @@ export default function EventCard({ event, isActive, user, onComments }) {
     }
     setBigHeart(true);
     setTimeout(() => setBigHeart(false), 700);
-
     const rect = cardRef.current?.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -214,19 +187,24 @@ export default function EventCard({ event, isActive, user, onComments }) {
     }
   };
 
+  const handleComment = (e) => {
+    e.stopPropagation();
+    animateBtn("comment");
+    onComment && onComment();
+  };
+
   const formatNum = (n) => n >= 1000 ? (n / 1000).toFixed(1) + "k" : n;
+
+  const buttons = [
+    { key: "like", onClick: handleLike, active: liked, label: formatNum(likeCount), icon: <HeartIcon filled={liked} color={event.color} /> },
+    { key: "attend", onClick: handleAttend, active: attending, label: formatNum(attendCount), icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> },
+    { key: "share", onClick: handleShare, active: false, label: "Share", icon: <ShareIcon /> },
+    { key: "comment", onClick: handleComment, active: false, label: "Chat", icon: <CommentIcon /> },
+  ];
 
   return (
     <div ref={cardRef} onClick={handleDoubleTap} style={{ width: "100%", height: "100%", position: "relative", background: event.bgColor, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none", cursor: "pointer", flexShrink: 0 }}>
-      <style>{`
-        @keyframes btnBounce {
-          0% { transform: scale(1); }
-          30% { transform: scale(0.85); }
-          60% { transform: scale(1.2); }
-          80% { transform: scale(0.95); }
-          100% { transform: scale(1); }
-        }
-      `}</style>
+      <style>{`@keyframes btnBounce { 0%{transform:scale(1)} 30%{transform:scale(0.85)} 60%{transform:scale(1.2)} 80%{transform:scale(0.95)} 100%{transform:scale(1)} }`}</style>
 
       <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 80% 60% at 50% 30%, ${event.color}40 0%, transparent 70%)` }} />
       <div style={{ position: "absolute", top: "15%", left: "50%", transform: "translateX(-50%)", width: 220, height: 220, borderRadius: "50%", background: `radial-gradient(circle, ${event.color}30 0%, transparent 70%)`, filter: "blur(40px)", animation: isActive ? "pulse 3s ease-in-out infinite" : "none" }} />
@@ -235,7 +213,6 @@ export default function EventCard({ event, isActive, user, onComments }) {
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)" }} />
 
-      {/* Badge */}
       <div style={{ position: "absolute", top: 20, left: 16, padding: "4px 10px", borderRadius: 20, background: event.type === "official" ? `${event.color}30` : "rgba(255,255,255,0.1)", border: `1px solid ${event.type === "official" ? event.color + "80" : "rgba(255,255,255,0.2)"}`, backdropFilter: "blur(10px)", display: "flex", alignItems: "center", gap: 5 }}>
         <span style={{ fontSize: 11 }}>{event.type === "official" ? "⚡" : "🏠"}</span>
         <span style={{ fontSize: 11, fontWeight: 700, color: event.type === "official" ? event.color : "rgba(255,255,255,0.85)", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }}>
@@ -243,7 +220,6 @@ export default function EventCard({ event, isActive, user, onComments }) {
         </span>
       </div>
 
-      {/* Content */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 64, padding: "0 16px 28px" }}>
         <div style={{ fontSize: 11, color: event.color, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", marginBottom: 6, opacity: 0.9 }}>{event.organizer}</div>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", lineHeight: 1.2, marginBottom: 8, fontFamily: "'Syne', sans-serif" }}>{event.title}</div>
@@ -261,16 +237,9 @@ export default function EventCard({ event, isActive, user, onComments }) {
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div style={{ position: "absolute", right: 12, bottom: 90, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        {[
-          { key: "like", onClick: handleLike, active: liked, label: formatNum(likeCount), icon: <HeartIcon filled={liked} color={event.color} /> },
-          { key: "attend", onClick: handleAttend, active: attending, label: formatNum(attendCount), icon: attending ? <CheckIcon color={event.color} /> : <StarIcon /> },
-          { key: "share", onClick: handleShare, active: false, label: "Share", icon: <ShareIcon /> },
-          { key: "comment", onClick: (e) => { e.stopPropagation(); onComment && onComment(); }, active: false, label: "Chat", icon: <CommentIcon /> },
-          { key: "comments", onClick: (e) => { e.stopPropagation(); onComments && onComments(); }, active: false, label: "Chat", icon: <CommentIcon /> },
-        ].map(btn => (
-          <button key={btn.key} onClick={btn.onClick} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: 0 }}>
+      <div style={{ position: "absolute", right: 12, bottom: 90, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        {buttons.map(btn => (
+          <button key={btn.key} onClick={btn.onClick} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: 0 }}>
             <div style={{
               width: 46, height: 46, borderRadius: "50%",
               background: btn.active ? `${event.color}25` : "rgba(255,255,255,0.08)",
@@ -290,10 +259,7 @@ export default function EventCard({ event, isActive, user, onComments }) {
         ))}
       </div>
 
-      {/* Burst particles */}
-      {burst.map(p => <BurstParticle key={p.id} {...p} />)}
-
-      {/* Floating hearts */}
+      {burst.map(p => <BurstParticle key={p.id} x={p.x} y={p.y} color={p.color} angle={p.angle} />)}
       {hearts.map(h => <HeartParticle key={h.id} x={h.x} y={h.y} id={h.id} color={event.color} />)}
       <BigHeart show={bigHeart} color={event.color} />
       <Toast show={toast.show} message={toast.message} color={toast.color} />
