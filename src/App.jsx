@@ -68,6 +68,10 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
       setAuthLoading(false);
+      // When user logs in, switch to profile tab so they can complete their profile
+      if (session?.user && _event === "SIGNED_IN") {
+        setActiveTab("profile");
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
