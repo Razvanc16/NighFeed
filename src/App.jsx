@@ -127,6 +127,13 @@ export default function App() {
       `}</style>
 
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      {/* AUTH GATE — dacă nu ești logat, arată login */}
+      {!authLoading && !user && !showSplash && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9997 }}>
+          <AuthPage onAuth={(u) => setUser(u)} />
+        </div>
+      )}
+
       {authLoading && !showSplash && (
         <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9998 }}>
           <div style={{ fontSize: 32, animation: "pulse 1s ease-in-out infinite" }}>🌙</div>
