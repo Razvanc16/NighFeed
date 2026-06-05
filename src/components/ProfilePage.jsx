@@ -4,8 +4,6 @@ import { events as staticEvents } from "../data/events";
 import PostPage from "./PostPage";
 import RequestsPage from "./RequestsPage";
 
-const getProfileKey = (userId) => `nightfeed_profile_${userId}`;
-
 export default function ProfilePage({ user, onLogout }) {
   const [view, setView] = useState("loading");
   const [saving, setSaving] = useState(false);
@@ -23,36 +21,26 @@ export default function ProfilePage({ user, onLogout }) {
   const [avatarFile, setAvatarFile] = useState(null);
 
   useEffect(() => {
-    const savedId = user?.id ? localStorage.getItem(getProfileKey(user.id)) : null;
-    if (savedId) loadProfile(savedId);
-    else setView("setup");
+    if (!user) return;
+    loadProfileByUserId();
 
-    // Load attending/liked from localStorage
     const attending = staticEvents.filter(e => JSON.parse(localStorage.getItem(`attending_${e.id}`)) === true);
     const liked = staticEvents.filter(e => JSON.parse(localStorage.getItem(`liked_${e.id}`)) === true);
     setAttendingEvents(attending);
     setLikedEvents(liked);
-
-    // Load user's posted events
-    if (user) loadMyPostedEvents();
+    loadMyPostedEvents();
   }, [user]);
 
-  const loadProfile = async (id) => {
-    // First try by saved profile id
-    let { data } = await supabase.from("profiles").select("*").eq("id", id).single();
-    
-    // If not found, try by user_id (auth user)
-    if (!data && user?.id) {
-      const res = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
-      data = res.data;
-      if (data) localStorage.setItem(getProfileKey(user.id), data.id);
-    }
-    
+  const loadProfileByUserId = async () => {
+    if (!user?.id) { setView("setup"); return; }
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
     if (data) {
       setProfile(data);
       setForm({ nume: data.nume || "", prenume: data.prenume || "", varsta: data.varsta || "", gen: data.gen || "", hobby: data.hobby || "", avatar_url: data.avatar_url || "" });
       setView("profile");
-    } else setView("setup");
+    } else {
+      setView("setup");
+    }
   };
 
   const loadMyPostedEvents = async () => {
@@ -82,21 +70,36 @@ export default function ProfilePage({ user, onLogout }) {
     if (!form.nume || !form.prenume) { alert("Completează cel puțin numele și prenumele!"); return; }
     setSaving(true);
     try {
-      const existingId = user?.id ? localStorage.getItem(getProfileKey(user.id)) : null;
-      let profileId = existingId;
-      if (!profileId) {
-        const { data, error } = await supabase.from("profiles").insert([{ ...form, varsta: Number(form.varsta) || null, user_id: user?.id }]).select().single();
+      // Check if profile already exists for this user
+      const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", user.id).single();
+      
+      let profileId = existing?.id;
+      let avatarUrl = form.avatar_url;
+
+      if (profileId) {
+        // Update existing
+        avatarUrl = await uploadAvatar(profileId);
+        const { data, error } = await supabase.from("profiles").update({ ...form, varsta: Number(form.varsta) || null, avatar_url: avatarUrl, user_id: user.id }).eq("id", profileId).select().single();
+        if (error) throw error;
+        setProfile(data);
+      } else {
+        // Create new
+        const { data, error } = await supabase.from("profiles").insert([{ ...form, varsta: Number(form.varsta) || null, user_id: user.id }]).select().single();
         if (error) throw error;
         profileId = data.id;
-        localStorage.setItem(getProfileKey(user.id), profileId);
+        avatarUrl = await uploadAvatar(profileId);
+        if (avatarUrl !== form.avatar_url) {
+          await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", profileId);
+          data.avatar_url = avatarUrl;
+        }
+        setProfile(data);
       }
-      const avatarUrl = await uploadAvatar(profileId);
-      const { data, error } = await supabase.from("profiles").update({ ...form, varsta: Number(form.varsta) || null, avatar_url: avatarUrl }).eq("id", profileId).select().single();
-      if (error) throw error;
-      setProfile(data);
+
       setEditing(false);
       setView("profile");
-    } catch (err) { alert("Eroare la salvare: " + err.message); }
+    } catch (err) {
+      alert("Eroare la salvare: " + err.message);
+    }
     setSaving(false);
   };
 
@@ -123,7 +126,6 @@ export default function ProfilePage({ user, onLogout }) {
   return (
     <div style={{ width: "100%", height: "100%", background: "#080808", overflowY: "auto", paddingBottom: 80 }}>
 
-      {/* SETUP / EDIT FORM */}
       {isSetup && (
         <div style={{ padding: "50px 20px 20px", animation: "slideUp 0.3s ease-out" }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>
@@ -172,10 +174,8 @@ export default function ProfilePage({ user, onLogout }) {
         </div>
       )}
 
-      {/* PROFILE VIEW */}
       {!isSetup && profile && (
         <div style={{ animation: "slideUp 0.3s ease-out" }}>
-          {/* Header */}
           <div style={{ padding: "50px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ width: 70, height: 70, borderRadius: "50%", background: "linear-gradient(135deg, #FF3366, #FF6B35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0, border: "2px solid rgba(255,51,102,0.4)" }}>
               {profile.avatar_url ? <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🌙"}
@@ -185,17 +185,16 @@ export default function ProfilePage({ user, onLogout }) {
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono', monospace", marginTop: 2 }}>
                 {profile.varsta ? `${profile.varsta} ani` : ""}{profile.gen ? ` · ${profile.gen}` : ""}
               </div>
-              {profile.hobby && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>🎯 {profile.hobby}</div>}
+              {profile.hobby && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>🎯 {profile.hobby}</div>}
               {user?.email && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontFamily: "'DM Mono', monospace", marginTop: 4 }}>📧 {user.email}</div>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={() => setEditing(true)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "7px 12px", color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Editează</button>
-              {onLogout && <button onClick={onLogout} style={{ background: "rgba(255,51,102,0.1)", border: "1px solid rgba(255,51,102,0.2)", borderRadius: 10, padding: "7px 12px", color: "#FF3366", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Ieși</button>}
               <button onClick={() => setShowRequests(true)} style={{ background: "rgba(255,184,0,0.1)", border: "1px solid rgba(255,184,0,0.2)", borderRadius: 10, padding: "7px 12px", color: "#FFB800", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>📬 Cereri</button>
+              {onLogout && <button onClick={onLogout} style={{ background: "rgba(255,51,102,0.1)", border: "1px solid rgba(255,51,102,0.2)", borderRadius: 10, padding: "7px 12px", color: "#FF3366", fontSize: 12, fontFamily: "'DM Mono', monospace", cursor: "pointer" }}>Ieși</button>}
             </div>
           </div>
 
-          {/* Stats */}
           <div style={{ display: "flex", padding: "16px 20px", gap: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             {[
               { label: "Particip", value: attendingEvents.length, icon: "✅" },
@@ -210,29 +209,27 @@ export default function ProfilePage({ user, onLogout }) {
             ))}
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: "flex", padding: "14px 16px 8px", gap: 6, overflowX: "auto" }}>
+          <div style={{ display: "flex", padding: "14px 16px 8px", gap: 6 }}>
             {[
               { id: "attending", label: "Particip", icon: "✅" },
               { id: "liked", label: "Apreciate", icon: "❤️" },
               { id: "posted", label: "Postate", icon: "📤" },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 20, border: `1px solid ${activeTab === tab.id ? "rgba(255,51,102,0.5)" : "rgba(255,255,255,0.08)"}`, background: activeTab === tab.id ? "rgba(255,51,102,0.15)" : "rgba(255,255,255,0.04)", cursor: "pointer", color: activeTab === tab.id ? "#FF3366" : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 700, fontFamily: "'DM Mono', monospace", transition: "all 0.2s" }}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flex: 1, padding: "8px", borderRadius: 20, border: `1px solid ${activeTab === tab.id ? "rgba(255,51,102,0.5)" : "rgba(255,255,255,0.08)"}`, background: activeTab === tab.id ? "rgba(255,51,102,0.15)" : "rgba(255,255,255,0.04)", cursor: "pointer", color: activeTab === tab.id ? "#FF3366" : "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
                 {tab.icon} {tab.label}
               </button>
             ))}
           </div>
 
-          {/* Event list */}
           <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
             {activeTab === "posted" ? (
               myPostedEvents.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.25)" }}>
                   <div style={{ fontSize: 40, marginBottom: 10 }}>📤</div>
-                  <div style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Nu ai postat niciun eveniment</div>
+                  <div style={{ fontSize: 13 }}>Nu ai postat niciun eveniment</div>
                 </div>
               ) : myPostedEvents.map(event => (
-                <div key={event.id} style={{ borderRadius: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", padding: "14px", position: "relative" }}>
+                <div key={event.id} style={{ borderRadius: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", padding: "14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 10, background: event.type === "official" ? "rgba(255,51,102,0.2)" : "rgba(255,184,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
                       {event.type === "official" ? "⚡" : "🏠"}
@@ -255,9 +252,7 @@ export default function ProfilePage({ user, onLogout }) {
               (activeTab === "attending" ? attendingEvents : likedEvents).length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.25)" }}>
                   <div style={{ fontSize: 40, marginBottom: 10 }}>{activeTab === "attending" ? "🎉" : "🤍"}</div>
-                  <div style={{ fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-                    {activeTab === "attending" ? "Nu ești înscris la niciun eveniment" : "Nu ai apreciat niciun eveniment"}
-                  </div>
+                  <div style={{ fontSize: 13 }}>{activeTab === "attending" ? "Nu ești înscris la niciun eveniment" : "Nu ai apreciat niciun eveniment"}</div>
                 </div>
               ) : (activeTab === "attending" ? attendingEvents : likedEvents).map(event => (
                 <div key={event.id} style={{ borderRadius: 14, background: event.bgColor, border: `1px solid ${event.color}30`, padding: "14px", position: "relative", overflow: "hidden" }}>
@@ -280,17 +275,12 @@ export default function ProfilePage({ user, onLogout }) {
           </div>
         </div>
       )}
-      {showRequests && (
-        <RequestsPage user={user} onClose={() => setShowRequests(false)} />
-      )}
+
+      {showRequests && <RequestsPage user={user} onClose={() => setShowRequests(false)} />}
 
       {editingEvent && (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "#080808" }}>
-          <PostPage
-            user={user}
-            editEvent={editingEvent}
-            onClose={() => { setEditingEvent(null); loadMyPostedEvents(); }}
-          />
+          <PostPage user={user} editEvent={editingEvent} onClose={() => { setEditingEvent(null); loadMyPostedEvents(); }} />
         </div>
       )}
     </div>
