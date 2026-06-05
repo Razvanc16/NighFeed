@@ -4,7 +4,7 @@ import { events as staticEvents } from "../data/events";
 import PostPage from "./PostPage";
 import RequestsPage from "./RequestsPage";
 
-const PROFILE_KEY = "nightfeed_profile_id";
+const getProfileKey = (userId) => `nightfeed_profile_${userId}`;
 
 export default function ProfilePage({ user, onLogout }) {
   const [view, setView] = useState("loading");
@@ -23,7 +23,7 @@ export default function ProfilePage({ user, onLogout }) {
   const [avatarFile, setAvatarFile] = useState(null);
 
   useEffect(() => {
-    const savedId = localStorage.getItem(PROFILE_KEY);
+    const savedId = user?.id ? localStorage.getItem(getProfileKey(user.id)) : null;
     if (savedId) loadProfile(savedId);
     else setView("setup");
 
@@ -38,7 +38,16 @@ export default function ProfilePage({ user, onLogout }) {
   }, [user]);
 
   const loadProfile = async (id) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", id).single();
+    // First try by saved profile id
+    let { data } = await supabase.from("profiles").select("*").eq("id", id).single();
+    
+    // If not found, try by user_id (auth user)
+    if (!data && user?.id) {
+      const res = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
+      data = res.data;
+      if (data) localStorage.setItem(getProfileKey(user.id), data.id);
+    }
+    
     if (data) {
       setProfile(data);
       setForm({ nume: data.nume || "", prenume: data.prenume || "", varsta: data.varsta || "", gen: data.gen || "", hobby: data.hobby || "", avatar_url: data.avatar_url || "" });
@@ -76,10 +85,10 @@ export default function ProfilePage({ user, onLogout }) {
       const existingId = localStorage.getItem(PROFILE_KEY);
       let profileId = existingId;
       if (!profileId) {
-        const { data, error } = await supabase.from("profiles").insert([{ ...form, varsta: Number(form.varsta) || null }]).select().single();
+        const { data, error } = await supabase.from("profiles").insert([{ ...form, varsta: Number(form.varsta) || null, user_id: user?.id }]).select().single();
         if (error) throw error;
         profileId = data.id;
-        localStorage.setItem(PROFILE_KEY, profileId);
+        localStorage.setItem(getProfileKey(user.id), profileId);
       }
       const avatarUrl = await uploadAvatar(profileId);
       const { data, error } = await supabase.from("profiles").update({ ...form, varsta: Number(form.varsta) || null, avatar_url: avatarUrl }).eq("id", profileId).select().single();
