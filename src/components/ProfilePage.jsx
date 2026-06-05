@@ -82,7 +82,7 @@ export default function ProfilePage({ user, onLogout }) {
     if (!form.nume || !form.prenume) { alert("Completează cel puțin numele și prenumele!"); return; }
     setSaving(true);
     try {
-      const existingId = localStorage.getItem(PROFILE_KEY);
+      const existingId = user?.id ? localStorage.getItem(getProfileKey(user.id)) : null;
       let profileId = existingId;
       if (!profileId) {
         const { data, error } = await supabase.from("profiles").insert([{ ...form, varsta: Number(form.varsta) || null, user_id: user?.id }]).select().single();
