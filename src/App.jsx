@@ -24,7 +24,7 @@ const filterFn = (event, filter) => {
 
 // Convert Supabase posted_event to same format as static events
 const convertPostedEvent = (e) => ({
-  id: e.id,
+  id: `posted_${e.id}`,
   type: e.type || "homemade",
   title: e.title,
   venue: e.venue || "Locație necunoscută",
@@ -44,6 +44,7 @@ const convertPostedEvent = (e) => ({
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("feed");
@@ -62,9 +63,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setUser(data.session.user);
+      setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+      setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -120,6 +123,11 @@ export default function App() {
       `}</style>
 
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      {authLoading && !showSplash && (
+        <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9998 }}>
+          <div style={{ fontSize: 32, animation: "pulse 1s ease-in-out infinite" }}>🌙</div>
+        </div>
+      )}
 
       {/* POST PAGE */}
       {showPost && (
